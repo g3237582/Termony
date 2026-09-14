@@ -36,8 +36,14 @@ void ResizeWidth(int new_width) {}
 
 // start a terminal
 static napi_value Run(napi_env env, napi_callback_info info) {
-    Start();
-    return nullptr;
+    std::string err = Start();
+    napi_value result = nullptr;
+    if (err.empty()) {
+        napi_get_undefined(env, &result);
+        return result;
+    }
+    napi_create_string_utf8(env, err.c_str(), err.size(), &result);
+    return result;
 }
 
 // send data to terminal

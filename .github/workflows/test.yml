@@ -16,8 +16,8 @@ jobs:
     - name: install dependencies
       run: sudo apt update && sudo apt install -y libglfw3-dev libgles-dev libfreetype-dev libutf8proc-dev nlohmann-json3-dev catch2 clang
     - name: compile terminal
-      run: cd entry/src/main/cpp && clang++ -std=c++17 terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lGLESv2 -lglfw -lfreetype -lutf8proc -o terminal
+      run: cd entry/src/main/cpp && clang++ -std=c++17 terminal.cpp terminal_session.cpp -I/usr/include/freetype2 -DSTANDALONE -lGLESv2 -lglfw -lfreetype -lutf8proc -o terminal
     - name: compile test
-      run: cd entry/src/main/cpp && clang++ -std=c++17 -O2 -fsanitize=address test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lGLESv2 -lglfw -lfreetype -lutf8proc -lCatch2Main -lCatch2
+      run: cd entry/src/main/cpp && clang++ -std=c++17 -O2 -fsanitize=address test.cpp terminal.cpp terminal_session.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lGLESv2 -lglfw -lfreetype -lutf8proc -lCatch2Main -lCatch2
     - name: run test
       run: cd entry/src/main/cpp && ./test
