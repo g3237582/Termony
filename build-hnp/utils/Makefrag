@@ -35,8 +35,10 @@ export PREFIX := /data/app/base.org/base_1.0
 # wget with retry options
 WGET = wget --retry-connrefused --read-timeout=20 --timeout=15
 
-# default GNU mirror, allow to override
-GNU_MIRROR ?= https://ftpmirror.gnu.org
+# Canonical GNU host. Keep SOURCE_URL paths as $(GNU_MIRROR)/gnu/<pkg>/...
+# https://ftpmirror.gnu.org/gnu/... 302s to <mirror>/gnu//gnu/... and 404s
+# (Build HNP CI on 2026-09-14: gettext-0.25.tar.xz). Override if needed.
+GNU_MIRROR ?= https://ftp.gnu.org
 
 BUILD_DIR = build
 
