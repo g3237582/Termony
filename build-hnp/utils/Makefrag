@@ -66,6 +66,7 @@ all: download/$(SOURCE_FILE)
 download/$(SOURCE_FILE):
 	mkdir -p download
 	WGET="$(WGET)" GNU_MIRROR_FALLBACKS="$(GNU_MIRROR_FALLBACKS)" \
+		SOURCE_URL_FALLBACKS="$(SOURCE_URL_FALLBACKS)" \
 		$(WGET_SOURCE) download/$(SOURCE_FILE) $(SOURCE_URL)
 endef
 
