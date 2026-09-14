@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "je.jia.termony",
+    "bundleName": "com.alvin.termony",
     "vendor": "example",
     "versionCode": 1000000,
     "versionName": "1.0.0",

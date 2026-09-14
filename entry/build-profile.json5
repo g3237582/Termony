@@ -37,6 +37,7 @@
       "name": "default",
       "config": {
         "deviceType": [
+          "phone",
           "2in1"
         ]
       }
