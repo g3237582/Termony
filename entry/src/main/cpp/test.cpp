@@ -1,11 +1,27 @@
 // build with:
-// clang++ -std=c++17 test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -lCatch2Main -lCatch2 -lfreetype -lutf8proc -lGLESv2 -lglfw -o test
+// clang++ -std=c++17 -O2 -fsanitize=address test.cpp terminal.cpp terminal_session.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -lCatch2Main -lCatch2 -lfreetype -lutf8proc -lGLESv2 -lglfw -o test
 #include "terminal.h"
 #include <catch2/catch_test_macros.hpp>
+#include <cerrno>
 #include <cstdio>
 #include <fstream>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+
+TEST_CASE( "FormatErrno includes op and errno", "" ) {
+    std::string s = FormatErrno("forkpty", EPERM);
+    REQUIRE( s.find("forkpty") != std::string::npos );
+    REQUIRE( s.find(std::to_string(EPERM)) != std::string::npos );
+}
+
+TEST_CASE( "AppendNotice writes into the buffer without a pty", "" ) {
+    terminal_context ctx;
+    ctx.ResizeTo(24, 80);
+    ctx.AppendNotice("hello");
+    REQUIRE( ctx.buffer[0][0].code == 'h' );
+    REQUIRE( ctx.row == 1 );
+    REQUIRE( ctx.col == 0 );
+}
 
 TEST_CASE( "Columns change with input", "" ) {
     terminal_context ctx;

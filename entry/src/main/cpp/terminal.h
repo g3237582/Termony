@@ -191,13 +191,20 @@ struct terminal_context {
     // poll fds and feed to terminal Parse
     void Worker();
 
-    // fork & create pty
-    // assume lock is held
-    void Fork();
+    // Write a status line into the visible buffer (no pty required).
+    void AppendNotice(const std::string &line);
+
+    // fork/spawn a shell attached to a pty. Assume lock is held.
+    // Empty string means success and a worker thread was started.
+    // On failure fd stays -1; errno is logged and a notice is shown.
+    std::string Fork();
 };
 
-// start a terminal
-void Start();
+// Human-readable "op: errno (strerror)" for hilog and UI.
+std::string FormatErrno(const char *op, int err);
+
+// start a terminal. Empty string means success; otherwise a recoverable error.
+std::string Start();
 // start rendering
 void StartRender();
 // send data to terminal

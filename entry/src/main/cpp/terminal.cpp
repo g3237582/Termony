@@ -1,5 +1,5 @@
 // for standalone build to test on Linux:
-// clang++ -std=c++17 terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lutf8proc -lGLESv2 -lglfw -o terminal
+// clang++ -std=c++17 terminal.cpp terminal_session.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lutf8proc -lGLESv2 -lglfw -o terminal
 
 #include "terminal.h"
 #include "freetype/ftmm.h"
@@ -23,36 +23,7 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-
-#ifdef STANDALONE
-#define LOG_INFO(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
-#define LOG_WARN(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
-#define LOG_ERROR(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
-#else
-#include "hilog/log.h"
-#undef LOG_DEBUG
-#undef LOG_INFO
-#undef LOG_WARN
-#undef LOG_ERROR
-#undef LOG_FATAL
-void hiprintf(int level, const char * fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    constexpr int bufsz = 8192;
-    char buf[bufsz];
-    if (vsnprintf(buf, bufsz, fmt, args) > 0) {
-        OH_LOG_Print(LOG_APP, (LogLevel)level, 0, "testTag", "%{public}s", buf);
-    }
-    va_end(args);
-}
-// supress logs
-//#define hiprintf(...)
-#define LOG_DEBUG(...) hiprintf(3, __VA_ARGS__)
-#define LOG_INFO(...) hiprintf(4, __VA_ARGS__)
-#define LOG_WARN(...) hiprintf(5, __VA_ARGS__)
-#define LOG_ERROR(...) hiprintf(6, __VA_ARGS__)
-#define LOG_FATAL(...) hiprintf(7, __VA_ARGS__)
-#endif
+#include "terminal_log.h"
 
 // docs for escape codes:
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
@@ -198,10 +169,12 @@ void terminal_context::ResizeTo(int new_term_row, int new_term_col) {
         tab_stops[i] = true;
     }
 
-    struct winsize ws = {};
-    ws.ws_col = num_cols;
-    ws.ws_row = num_rows;
-    ioctl(fd, TIOCSWINSZ, &ws);
+    if (fd >= 0) {
+        struct winsize ws = {};
+        ws.ws_col = static_cast<unsigned short>(num_cols);
+        ws.ws_row = static_cast<unsigned short>(num_rows);
+        ioctl(fd, TIOCSWINSZ, &ws);
+    }
 }
 
 void terminal_context::DropFirstRowIfOverflow() {
@@ -1217,7 +1190,10 @@ void terminal_context::Worker() {
                 DropFirstRowIfOverflow();
                 col = 0;
 
-                Fork();
+                if (!Fork().empty()) {
+                    pthread_mutex_unlock(&lock);
+                    break;
+                }
                 pthread_mutex_unlock(&lock);
                 break;
             }
@@ -1234,44 +1210,6 @@ void terminal_context::Worker() {
         }
     }
     return;
-}
-
-// fork & create pty
-// assume lock is held
-void terminal_context::Fork() {
-    struct winsize ws = {};
-    ws.ws_col = num_cols;
-    ws.ws_row = num_rows;
-
-    int pid = forkpty(&fd, nullptr, nullptr, &ws);
-    if (!pid) {
-#ifdef STANDALONE
-        execl("/bin/bash", "/bin/bash", nullptr);
-#else
-        // override HOME to /storage/Users/currentUser since it is writable
-        const char *home = "/storage/Users/currentUser";
-        setenv("PATH",
-            "/data/app/base.org/base_1.0/bin:/data/app/bin:"
-            "/data/service/hnp/base.org/base_1.0/bin:/data/service/hnp/bin:/bin:"
-            "/usr/local/bin:/usr/bin:/system/bin:/vendor/bin", 1);
-        setenv("HOME", home, 1);
-        setenv("PWD", home, 1);
-        // set LD_LIRBARY_PATH for shared libraries
-        setenv("LD_LIBRARY_PATH", "/data/app/base.org/base_1.0/lib", 1);
-        // override TMPDIR for tmux
-        setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
-        chdir(home);
-        execl("/data/app/base.org/base_1.0/bin/bash", "/data/app/base.org/base_1.0/bin/bash", nullptr);
-#endif
-    }
-
-    // set as non blocking
-    int res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
-    assert(res == 0);
-
-    // start terminal worker in another thread
-    pthread_t terminal_thread;
-    pthread_create(&terminal_thread, NULL, TerminalWorker, this);
 }
 
 static terminal_context term;
@@ -1313,18 +1251,19 @@ static void ResizeTo(int new_term_row, int new_term_col, bool update_viewport = 
     term.ResizeTo(new_term_row, new_term_col);
 }
 
-void Start() {
+std::string Start() {
     pthread_mutex_lock(&term.lock);
     if (term.fd != -1) {
-        return;
+        pthread_mutex_unlock(&term.lock);
+        return {};
     }
 
     // setup terminal, default to 80x24
     term.ResizeTo(24, 80);
 
-    term.Fork();
-
+    std::string err = term.Fork();
     pthread_mutex_unlock(&term.lock);
+    return err;
 }
 
 void SendData(uint8_t *data, size_t length) {

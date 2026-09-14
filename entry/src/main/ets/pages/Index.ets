@@ -8,8 +8,6 @@ import testNapi from 'libentry.so';
 
 const DOMAIN = 0x0000;
 
-testNapi.run();
-
 class MyXComponentController extends XComponentController {
   onSurfaceCreated(surfaceId: string): void {
     hilog.info(DOMAIN, 'testTag', 'onSurfaceCreated surfaceId: %{public}s', surfaceId);
@@ -93,6 +91,18 @@ struct Index {
     this.imControllerOnce = () => {}
   }
   timer: number = -1;
+
+  aboutToAppear() {
+    const err: string | undefined = testNapi.run();
+    if (err) {
+      hilog.error(DOMAIN, 'testTag', 'terminal start failed: %{public}s', err);
+      promptAction.showToast({
+        message: err,
+        duration: 4000,
+        bottom: 'center',
+      });
+    }
+  }
 
   // minimize automatically detach it
   // FIXME: ime still active on context menu
