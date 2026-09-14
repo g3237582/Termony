@@ -35,8 +35,13 @@ export PREFIX := /data/app/base.org/base_1.0
 # wget with retry options
 WGET = wget --retry-connrefused --read-timeout=20 --timeout=15
 
-# default GNU mirror, allow to override
-GNU_MIRROR ?= https://ftpmirror.gnu.org
+# Canonical GNU host. Keep SOURCE_URL paths as $(GNU_MIRROR)/gnu/<pkg>/...
+# https://ftpmirror.gnu.org/gnu/... 302s to <mirror>/gnu//gnu/... and 404s
+# (Build HNP CI on 2026-09-14: gettext-0.25.tar.xz). Override if needed.
+GNU_MIRROR ?= https://ftp.gnu.org
+# Extra hosts with the same /gnu/<pkg>/<file> layout; used when SOURCE_URL fails.
+GNU_MIRROR_FALLBACKS ?= https://ftp.gnu.org https://mirrors.kernel.org
+WGET_SOURCE = $(CURDIR)/../utils/wget-source.sh
 
 BUILD_DIR = build
 
@@ -60,7 +65,8 @@ all: download/$(SOURCE_FILE)
 
 download/$(SOURCE_FILE):
 	mkdir -p download
-	cd download && $(WGET) -O $(SOURCE_FILE) $(SOURCE_URL)
+	WGET="$(WGET)" GNU_MIRROR_FALLBACKS="$(GNU_MIRROR_FALLBACKS)" \
+		$(WGET_SOURCE) download/$(SOURCE_FILE) $(SOURCE_URL)
 endef
 
 define define_autotools_package
